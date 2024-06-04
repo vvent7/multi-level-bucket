@@ -6,6 +6,7 @@
 #ifndef _MLB_H_
 #define _MLB_H_
 
+#include <cstddef>  // size_t
 #include <utility>  // std::pair
 
 namespace mlb {
@@ -104,7 +105,7 @@ class MultiLevelBucketHeap {
         break;
       }
       case ADAPTIVE:
-      default: { // param is rho
+      default: {  // param is rho
         // optimize kLevels and delta for the worst case
         // RHO*kLevels ~= delta
         // rho = log(RHO)
@@ -119,7 +120,7 @@ class MultiLevelBucketHeap {
           logDelta = rho;
           kLevels = 1UL << (logDelta - rho);  // = delta/RHO
           while (logDelta * kLevels + logBottom < logMax) {
-            logDelta++;
+            ++logDelta;
             kLevels = 1UL << (logDelta - rho);  // = delta/RHO
           }
 
@@ -147,7 +148,7 @@ class MultiLevelBucketHeap {
     assert(rgLevels);
     topLevel = rgLevels + kLevels - 1;
 
-    for (_Level *pLevel = rgLevels; pLevel <= topLevel; pLevel++) {
+    for (_Level *pLevel = rgLevels; pLevel <= topLevel; ++pLevel) {
       unsigned long curDelta = (pLevel == topLevel ? topDelta : delta);
       unsigned long curLogDelta = (pLevel == topLevel ? logTopDelta : logDelta);
 
@@ -181,7 +182,7 @@ class MultiLevelBucketHeap {
   }
 
   MultiLevelBucketHeap(key_t minKeyVariation, key_t maxKeyVariation)
-    : MultiLevelBucketHeap(minKeyVariation, maxKeyVariation, ADAPTIVE, 4) {}
+      : MultiLevelBucketHeap(minKeyVariation, maxKeyVariation, ADAPTIVE, 4) {}
 
   void clear() {  // Reset Structure
     for (_Level *pLevel = rgLevels; pLevel <= topLevel; ++pLevel) {
@@ -190,8 +191,8 @@ class MultiLevelBucketHeap {
 
       unsigned long curDelta = (pLevel == topLevel ? topDelta : delta);
       for (unsigned long iBucket = 0; iBucket < curDelta; ++iBucket) {
-        if (pLevel->rgBin[iBucket].pNode == NULL)  continue;
-        
+        if (pLevel->rgBin[iBucket].pNode == NULL) continue;
+
         _Node *pNode = pLevel->rgBin[iBucket].pNode;
 
         NEXT(PREV(pNode)) = NULL;  // turn into list (previously cycle)
@@ -219,7 +220,7 @@ class MultiLevelBucketHeap {
 
   ~MultiLevelBucketHeap() {
     clear();
-    for (_Level *pLevel = rgLevels; pLevel <= topLevel; pLevel++)
+    for (_Level *pLevel = rgLevels; pLevel <= topLevel; ++pLevel)
       delete pLevel->rgBin;
     delete rgLevels;
   }
@@ -229,7 +230,7 @@ class MultiLevelBucketHeap {
   bool empty() const { return sz == 0; }
 
   _Node *insert(key_t key, data_t data) {
-    _Bucket *bckNew = keyToBucket(&key, keyToLevel(&key));
+    _Bucket *bckNew = keyToBucket(key, keyToLevel(key));
     _Node *node = new _Node(key, data);
     ++sz;
     return place(node, bckNew);
@@ -241,7 +242,7 @@ class MultiLevelBucketHeap {
   }
 
   void change_key(_Node *node, key_t new_key) {
-    _Bucket *bckNew = keyToBucket(&new_key, keyToLevel(&new_key));
+    _Bucket *bckNew = keyToBucket(new_key, keyToLevel(new_key));
     move(node, bckNew);
     node->key = new_key;
   }
@@ -266,7 +267,7 @@ class MultiLevelBucketHeap {
     // find first nonempty bucket
     if (pLevel->pBucket->pNode == NULL) {  // empty (current min) bucket
       if (pLevel < topLevel) {
-        assert(keyToBucket(&mu, pLevel) == pLevel->pBucket);
+        assert(keyToBucket(mu, pLevel) == pLevel->pBucket);
         do {
           EMPTY_BUCKET;
           ++(pLevel->pBucket);
@@ -293,7 +294,7 @@ class MultiLevelBucketHeap {
       // if logBottom > 0, need to erase last bits
       mu = (ans->key >> logBottom) << logBottom;
     }
-    else { // other levels (normal)
+    else {                          // other levels (normal)
       ans = expand_bucket(pLevel);  // this updates mu
     }
 
@@ -330,27 +331,25 @@ class MultiLevelBucketHeap {
   long statPosEval;          // statistic: number of keyToBucket operations
 #endif
 
-  // CHANGE TO: keyToLevel, CHANGE TO (key_t key);
-  _Level *keyToLevel(key_t *pDist) {
-    assert(mu <= *pDist);
-    key_t tDist = (*pDist >> logBottom) & relBitMask;
+  _Level *keyToLevel(key_t key) {
+    assert(mu <= key);
+    key_t tKey = (key >> logBottom) & relBitMask;
     key_t tMu = (mu >> logBottom) & relBitMask;
 
-    _Level *lev = rgLevels;
-    while (lev < topLevel) {
-      tDist >>= logDelta;
+    _Level *lvl = rgLevels;
+    while (lvl < topLevel) {
+      tKey >>= logDelta;
       tMu >>= logDelta;
-      if (tDist == tMu) break;
-      ++lev;
+      if (tKey == tMu) break;
+      ++lvl;
     }
-    return lev;
+    return lvl;
   }
 
-  // CHANGE TO: keyToBucket, CHANGE TO (key_t key, Level *lev)
-  _Bucket *keyToBucket(key_t *pDist, _Level *lev) {
+  _Bucket *keyToBucket(key_t key, _Level *lvl) {
     POS_EVAL;
-    return (lev->rgBin +
-            (((size_t)((*pDist) >> (lev->digShift))) & (lev->digMask)));
+    return (lvl->rgBin +
+            (((size_t)(key >> (lvl->digShift))) & (lvl->digMask)));
   }
 
   _Node *place(_Node *node, _Bucket *bckNew) {
@@ -358,7 +357,7 @@ class MultiLevelBucketHeap {
 
     BUCKET(node) = bckNew;  // setting new bucket
     // node->sBckInfo.bucket = bckNew;  // setting new bucket
-    if (bckNew->pNode == NULL) {     // first node in Bucket (circular)
+    if (bckNew->pNode == NULL) {  // first node in Bucket (circular)
       bckNew->pNode = NEXT(node) = PREV(node) = node;  // 1-length cycle
     }
     else {  // update neighbor nodes (insert in cycle)
@@ -370,7 +369,7 @@ class MultiLevelBucketHeap {
 
     // new node at level
     if (++(bckNew->pLevel->cNodes) == 1) {  // set pBucket
-      bckNew->pLevel->pBucket = keyToBucket(&mu, bckNew->pLevel);
+      bckNew->pLevel->pBucket = keyToBucket(mu, bckNew->pLevel);
     }
 
     if (minLevel > bckNew->pLevel) minLevel = bckNew->pLevel;
@@ -430,8 +429,7 @@ class MultiLevelBucketHeap {
       if (pNode == ans) continue;  // do not expand answer (mu)
 
       assert(pLevel > rgLevels);
-      _Bucket *bckNew =
-          keyToBucket(&(pNode->key), keyToLevel(&(pNode->key)));
+      _Bucket *bckNew = keyToBucket(pNode->key, keyToLevel(pNode->key));
       assert(bckNew->pLevel < pLevel);
       place(pNode, bckNew);  // Insert increases cNodes
     }
