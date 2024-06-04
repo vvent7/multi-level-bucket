@@ -348,8 +348,7 @@ class MultiLevelBucketHeap {
 
   _Bucket *keyToBucket(key_t key, _Level *lvl) {
     POS_EVAL;
-    return (lvl->rgBin +
-            (((size_t)(key >> (lvl->digShift))) & (lvl->digMask)));
+    return (lvl->rgBin + (((size_t)(key >> (lvl->digShift))) & (lvl->digMask)));
   }
 
   _Node *place(_Node *node, _Bucket *bckNew) {
