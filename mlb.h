@@ -70,7 +70,7 @@ struct Level {
 
 // md = LEVEL: param = number of levels
 // md = LOG_DELTA: param = log_2(delta)
-// md = ADAPTIVE: param is ignored
+// md = ADAPTIVE: param is rho
 enum Mode { LEVEL, LOG_DELTA, ADAPTIVE };
 
 template <typename key_t, typename data_t>
